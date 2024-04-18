@@ -21,6 +21,9 @@ from michelangelo.utils import instantiate_from_config
 from michelangelo.models.tsal.tsal_base import AlignedShapeAsLatentPLModule
 from michelangelo.models.asl_diffusion.inference_utils import ddim_sample
 
+from huggingface_hub import PyTorchModelHubMixin
+from omegaconf import OmegaConf
+
 SchedulerType = Union[DDIMScheduler, KarrasVeScheduler, DPMSolverMultistepScheduler]
 
 
@@ -30,18 +33,30 @@ def disabled_train(self, mode=True):
     return self
 
 
-class ClipASLDiffuser(pl.LightningModule):
+class ClipASLDiffuser(
+        pl.LightningModule,
+        PyTorchModelHubMixin,
+        library_name="michelangelo",
+        repo_url="https://github.com/NeuralCarver/Michelangelo",
+        pipeline_tag="image-to-3d",
+        coders={
+            OmegaConf: (
+                lambda x: OmegaConf.create(x) if x is not None else None,
+                lambda x: x.to_container(resolve=True) if x is not None else None,
+            )
+        }
+    ):
     first_stage_model: Optional[AlignedShapeAsLatentPLModule]
     cond_stage_model: Optional[Union[nn.Module, pl.LightningModule]]
     model: nn.Module
 
     def __init__(self, *,
-                 first_stage_config,
-                 cond_stage_config,
-                 denoiser_cfg,
-                 scheduler_cfg,
-                 optimizer_cfg,
-                 loss_cfg,
+                 first_stage_config: OmegaConf,
+                 cond_stage_config: OmegaConf,
+                 denoiser_cfg: OmegaConf,
+                 scheduler_cfg: OmegaConf,
+                 optimizer_cfg: OmegaConf,
+                 loss_cfg: OmegaConf,
                  first_stage_key: str = "surface",
                  cond_stage_key: str = "image",
                  scale_by_std: bool = False,
